@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .controls {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      select {
+        padding: 8px;
+        font-size: 16px;
+      }
+      .map-container {
+        width: 100%;
+        position: relative;
+      }
+      .map {
+        width: 100%;
+        height: auto;
+      }
+      path {
+        stroke: #fff;
+        stroke-width: 1;
+        transition: fill 0.3s;
+      }
+      path:hover {
+        opacity: 0.8;
+        cursor: pointer;
+      }
+      .legend {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+        justify-content: center;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #ccc;
+      }
+      .tooltip {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        padding: 8px;
+        border-radius: 4px;
+        pointer-events: none;
+        display: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+      }
+      text {
+        font-size: 12px;
+        pointer-events: none;
+        fill: #000;
+      }
+    </style>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+  </head>
+  <body>
+    <h1>US Electoral Vote Changes Between Elections</h1>
+
+    <div class="controls">
+      <label>
+        Base Year:
+        <select id="yearStart"></select>
+      </label>
+      <label>
+        Compare To:
+        <select id="yearEnd"></select>
+      </label>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+    <div class="map-container" id="map-container"></div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background: #ef4444"></div>
+        <span>Lost Votes</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #dedede"></div>
+        <span>No Change</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #22c55e"></div>
+        <span>Gained Votes</span>
+      </div>
+    </div>
+
+    <script>
+      // Electoral votes by state and year
+      const electoralVotes = {
+        2024: {
+          AL: 9,
+          AK: 3,
+          AZ: 11,
+          AR: 6,
+          CA: 54,
+          CO: 10,
+          CT: 7,
+          DE: 3,
+          FL: 30,
+          GA: 16,
+          HI: 4,
+          ID: 4,
+          IL: 19,
+          IN: 11,
+          IA: 6,
+          KS: 6,
+          KY: 8,
+          LA: 8,
+          ME: 4,
+          MD: 10,
+          MA: 11,
+          MI: 15,
+          MN: 10,
+          MS: 6,
+          MO: 10,
+          MT: 4,
+          NE: 5,
+          NV: 6,
+          NH: 4,
+          NJ: 14,
+          NM: 5,
+          NY: 28,
+          NC: 16,
+          ND: 3,
+          OH: 17,
+          OK: 7,
+          OR: 8,
+          PA: 19,
+          RI: 4,
+          SC: 9,
+          SD: 3,
+          TN: 11,
+          TX: 40,
+          UT: 6,
+          VT: 3,
+          VA: 13,
+          WA: 12,
+          WV: 4,
+          WI: 10,
+          WY: 3,
+        },
+        2020: {
+          AL: 9,
+          AK: 3,
+          AZ: 11,
+          AR: 6,
+          CA: 55,
+          CO: 9,
+          CT: 7,
+          DE: 3,
+          FL: 29,
+          GA: 16,
+          HI: 4,
+          ID: 4,
+          IL: 20,
+          IN: 11,
+          IA: 6,
+          KS: 6,
+          KY: 8,
+          LA: 8,
+          ME: 4,
+          MD: 10,
+          MA: 11,
+          MI: 16,
+          MN: 10,
+          MS: 6,
+          MO: 10,
+          MT: 3,
+          NE: 5,
+          NV: 6,
+          NH: 4,
+          NJ: 14,
+          NM: 5,
+          NY: 29,
+          NC: 15,
+          ND: 3,
+          OH: 18,
+          OK: 7,
+          OR: 7,
+          PA: 20,
+          RI: 4,
+          SC: 9,
+          SD: 3,
+          TN: 11,
+          TX: 38,
+          UT: 6,
+          VT: 3,
+          VA: 13,
+          WA: 12,
+          WV: 5,
+          WI: 10,
+          WY: 3,
+        },
+        2016: {
+          AL: 9,
+          AK: 3,
+          AZ: 11,
+          AR: 6,
+          CA: 55,
+          CO: 9,
+          CT: 7,
+          DE: 3,
+          FL: 29,
+          GA: 16,
+          HI: 4,
+          ID: 4,
+          IL: 20,
+          IN: 11,
+          IA: 6,
+          KS: 6,
+          KY: 8,
+          LA: 8,
+          ME: 4,
+          MD: 10,
+          MA: 11,
+          MI: 16,
+          MN: 10,
+          MS: 6,
+          MO: 10,
+          MT: 3,
+          NE: 5,
+          NV: 6,
+          NH: 4,
+          NJ: 14,
+          NM: 5,
+          NY: 29,
+          NC: 15,
+          ND: 3,
+          OH: 18,
+          OK: 7,
+          OR: 7,
+          PA: 20,
+          RI: 4,
+          SC: 9,
+          SD: 3,
+          TN: 11,
+          TX: 38,
+          UT: 6,
+          VT: 3,
+          VA: 13,
+          WA: 12,
+          WV: 5,
+          WI: 10,
+          WY: 3,
+        },
+        2012: {
+          AL: 9,
+          AK: 3,
+          AZ: 11,
+          AR: 6,
+          CA: 55,
+          CO: 9,
+          CT: 7,
+          DE: 3,
+          FL: 29,
+          GA: 16,
+          HI: 4,
+          ID: 4,
+          IL: 20,
+          IN: 11,
+          IA: 6,
+          KS: 6,
+          KY: 8,
+          LA: 8,
+          ME: 4,
+          MD: 10,
+          MA: 11,
+          MI: 16,
+          MN: 10,
+          MS: 6,
+          MO: 10,
+          MT: 3,
+          NE: 5,
+          NV: 6,
+          NH: 4,
+          NJ: 14,
+          NM: 5,
+          NY: 29,
+          NC: 15,
+          ND: 3,
+          OH: 18,
+          OK: 7,
+          OR: 7,
+          PA: 20,
+          RI: 4,
+          SC: 9,
+          SD: 3,
+          TN: 11,
+          TX: 38,
+          UT: 6,
+          VT: 3,
+          VA: 13,
+          WA: 12,
+          WV: 5,
+          WI: 10,
+          WY: 3,
+        },
+        2008: {
+          AL: 9,
+          AK: 3,
+          AZ: 10,
+          AR: 6,
+          CA: 55,
+          CO: 9,
+          CT: 7,
+          DE: 3,
+          FL: 27,
+          GA: 15,
+          HI: 4,
+          ID: 4,
+          IL: 21,
+          IN: 11,
+          IA: 7,
+          KS: 6,
+          KY: 8,
+          LA: 9,
+          ME: 4,
+          MD: 10,
+          MA: 12,
+          MI: 17,
+          MN: 10,
+          MS: 6,
+          MO: 11,
+          MT: 3,
+          NE: 5,
+          NV: 5,
+          NH: 4,
+          NJ: 15,
+          NM: 5,
+          NY: 31,
+          NC: 15,
+          ND: 3,
+          OH: 20,
+          OK: 7,
+          OR: 7,
+          PA: 21,
+          RI: 4,
+          SC: 8,
+          SD: 3,
+          TN: 11,
+          TX: 34,
+          UT: 5,
+          VT: 3,
+          VA: 13,
+          WA: 11,
+          WV: 5,
+          WI: 10,
+          WY: 3,
+        },
+        2004: {
+          AL: 9,
+          AK: 3,
+          AZ: 10,
+          AR: 6,
+          CA: 55,
+          CO: 9,
+          CT: 7,
+          DE: 3,
+          FL: 27,
+          GA: 15,
+          HI: 4,
+          ID: 4,
+          IL: 21,
+          IN: 11,
+          IA: 7,
+          KS: 6,
+          KY: 8,
+          LA: 9,
+          ME: 4,
+          MD: 10,
+          MA: 12,
+          MI: 17,
+          MN: 10,
+          MS: 6,
+          MO: 11,
+          MT: 3,
+          NE: 5,
+          NV: 5,
+          NH: 4,
+          NJ: 15,
+          NM: 5,
+          NY: 31,
+          NC: 15,
+          ND: 3,
+          OH: 20,
+          OK: 7,
+          OR: 7,
+          PA: 21,
+          RI: 4,
+          SC: 8,
+          SD: 3,
+          TN: 11,
+          TX: 34,
+          UT: 5,
+          VT: 3,
+          VA: 13,
+          WA: 11,
+          WV: 5,
+          WI: 10,
+          WY: 3,
+        },
+        2000: {
+          AL: 9,
+          AK: 3,
+          AZ: 8,
+          AR: 6,
+          CA: 54,
+          CO: 8,
+          CT: 8,
+          DE: 3,
+          FL: 25,
+          GA: 13,
+          HI: 4,
+          ID: 4,
+          IL: 22,
+          IN: 12,
+          IA: 7,
+          KS: 6,
+          KY: 8,
+          LA: 9,
+          ME: 4,
+          MD: 10,
+          MA: 12,
+          MI: 18,
+          MN: 10,
+          MS: 7,
+          MO: 11,
+          MT: 3,
+          NE: 5,
+          NV: 4,
+          NH: 4,
+          NJ: 15,
+          NM: 5,
+          NY: 33,
+          NC: 14,
+          ND: 3,
+          OH: 21,
+          OK: 8,
+          OR: 7,
+          PA: 23,
+          RI: 4,
+          SC: 8,
+          SD: 3,
+          TN: 11,
+          TX: 32,
+          UT: 5,
+          VT: 3,
+          VA: 13,
+          WA: 11,
+          WV: 5,
+          WI: 11,
+          WY: 3,
+        }
+      };
+
+      // Populate year dropdowns
+      const years = Object.keys(electoralVotes).sort().reverse();
+      const yearStart = document.getElementById("yearStart");
+      const yearEnd = document.getElementById("yearEnd");
+
+      years.forEach((year) => {
+        yearStart.add(new Option(year, year));
+        yearEnd.add(new Option(year, year));
+      });
+
+      yearEnd.selectedIndex = 1;
+
+      // Load and prepare the SVG map
+      async function loadMap() {
+        try {
+          const response = await fetch("https://upload.wikimedia.org/wikipedia/commons/1/1a/Blank_US_Map_%28states_only%29.svg");
+          const text = await response.text();
+          document.getElementById("map-container").innerHTML = text;
+
+          // Get the SVG element and set up its properties
+          const svg = document.querySelector("svg");
+          svg.setAttribute("class", "map");
+          svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+          // Set up event handlers for all state paths
+          const paths = svg.querySelectorAll("path");
+          paths.forEach((path) => {
+            const stateId = path.getAttribute("class");
+            setupStateInteraction(path, stateId);
+          });
+
+          // Initial update
+          updateMap();
+        } catch (error) {
+          console.error("Error loading map:", error);
+          document.getElementById("map-container").innerHTML = "Error loading map. Please try again.";
+        }
+      }
+
+      // Set up interactions for each state
+      function setupStateInteraction(path, stateId) {
+        const tooltip = document.getElementById("tooltip");
+
+        path.onmousemove = (e) => {
+          const startYear = yearStart.value;
+          const endYear = yearEnd.value;
+          const startVotes = electoralVotes[startYear][stateId.toUpperCase()];
+          const endVotes = electoralVotes[endYear][stateId.toUpperCase()];
+          const difference = endVotes - startVotes;
+
+          tooltip.style.display = "block";
+          tooltip.style.left = e.pageX + 10 + "px";
+          tooltip.style.top = e.pageY + 10 + "px";
+          tooltip.innerHTML = `
+          <strong>${stateId.toUpperCase()}</strong><br>
+          ${startYear}: ${startVotes} votes<br>
+          ${endYear}: ${endVotes} votes<br>
+          Change: ${difference > 0 ? "+" : ""}${difference}
+        `;
+        };
+
+        path.onmouseout = () => {
+          tooltip.style.display = "none";
+        };
+      }
+
+      // Update map colors based on selected years
+      function updateMap() {
+        const startYear = yearStart.value;
+        const endYear = yearEnd.value;
+        const svg = document.querySelector("svg");
+
+        if (!svg) return;
+
+        const pathGenerator = d3.geoPath();
+
+        svg.querySelectorAll("path").forEach((path) => {
+          const stateId = path.getAttribute("class");
+          if (!stateId || !electoralVotes[startYear][stateId.toUpperCase()]) {
+            return;
+          }
+
+          const startVotes = electoralVotes[startYear][stateId.toUpperCase()];
+          const endVotes = electoralVotes[endYear][stateId.toUpperCase()];
+          const difference = endVotes - startVotes;
+
+          // Set color based on vote difference
+          let color = "#dedede"; // no change
+          if (difference > 0) {
+            color = "#22c55e"; // gained votes
+          } else if (difference < 0) {
+            color = "#ef4444"; // lost votes
+          }
+          path.setAttribute("fill", color);
+
+          // Create or update the text element for the difference
+          let text = svg.querySelector(`text[data-state-id="${stateId}"]`);
+          if (!text) {
+            text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("data-state-id", stateId);
+            svg.appendChild(text);
+          }
+
+          // Convert the SVG path to a GeoJSON object
+          const geoJson = pathToGeoJson(path);
+          const centroid = pathGenerator.centroid(geoJson);
+
+          text.setAttribute("x", centroid[0]);
+          text.setAttribute("y", centroid[1]);
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("alignment-baseline", "middle");
+          text.setAttribute("fill", "black");
+          text.textContent = difference > 0 ? `+${difference}` : difference;
+        });
+      }
+
+      function pathToGeoJson(path) {
+        const d = path.getAttribute("d");
+        const svgPath = d3.select("svg").append("path").attr("d", d);
+        const geoJson = svgPath.node().getBBox();
+        svgPath.remove();
+
+        // Convert the bounding box to a GeoJSON object
+        const coordinates = [
+          [geoJson.x, geoJson.y],
+          [geoJson.x + geoJson.width, geoJson.y],
+          [geoJson.x + geoJson.width, geoJson.y + geoJson.height],
+          [geoJson.x, geoJson.y + geoJson.height],
+          [geoJson.x, geoJson.y]
+        ];
+
+        return {
+          type: "Polygon",
+          coordinates: [coordinates]
+        };
+      }
+
+      // Add event listeners to dropdowns
+      yearStart.addEventListener("change", updateMap);
+      yearEnd.addEventListener("change", updateMap);
+
+      // Load the map when the page loads
+      loadMap();
+    </script>
+  </body>
+</html>
